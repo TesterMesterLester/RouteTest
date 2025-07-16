@@ -299,7 +299,7 @@ def get_venues_in_area(areas: str = Query(..., description="Comma-separated area
 
 @app.get("/call-schedule")
 def get_call_schedule(areas: str = Query(..., description="Comma-separated areas (e.g., 'Oxford,Reading')")):
-    """Get comprehensive call schedule with sales history and next actions"""
+    """Get streamlined call schedule with essential info only"""
     area_list = [area.strip() for area in areas.split(",")]
     filtered_venues = [venue for venue in VENUES if venue["area"] in area_list]
     
@@ -316,18 +316,22 @@ def get_call_schedule(areas: str = Query(..., description="Comma-separated areas
         # Get call notes
         call_note = next((note for note in CALL_NOTES if note["uid"] == venue["uid"]), None)
         
+        # Simplified response - just essential info
         venue_data = {
-            **venue,
+            "uid": venue["uid"],
+            "store_name": venue["store_name"],
+            "store_address": venue["store_address"],
+            "store_owner": venue["store_owner"],
+            "area": venue["area"],
+            "venue_type": venue["venue_type"],
             "sold_last_90_days": recent_sale is not None,
             "last_sale_date": recent_sale["date_sold"] if recent_sale else None,
             "last_sale_value": recent_sale["total_value"] if recent_sale else None,
-            "last_sale_products": recent_sale["products_sold"] if recent_sale else [],
-            "last_sale_skus": [f"{item['sku']} - {item['product_name']} (Qty: {item['quantity']})" 
-                              for item in recent_sale["products_sold"]] if recent_sale else [],
+            "skus_sold": ", ".join([f"{item['sku']}-{item['product_name']}(x{item['quantity']})" 
+                                  for item in recent_sale["products_sold"]]) if recent_sale else "",
             "call_notes": call_note["call_notes"] if call_note else "No recent call notes",
             "next_best_action": call_note["next_best_action"] if call_note else "Schedule introductory call",
-            "priority": call_note["priority"] if call_note else "Low",
-            "last_call_date": call_note["last_call_date"] if call_note else "No recent calls"
+            "priority": call_note["priority"] if call_note else "Low"
         }
         call_schedule.append(venue_data)
     
@@ -336,8 +340,7 @@ def get_call_schedule(areas: str = Query(..., description="Comma-separated areas
         "total_venues": len(call_schedule),
         "areas_searched": area_list,
         "venues_with_recent_sales": len([v for v in call_schedule if v["sold_last_90_days"]]),
-        "high_priority_actions": len([v for v in call_schedule if v["priority"] == "High"]),
-        "last_updated": datetime.now().isoformat()
+        "high_priority_actions": len([v for v in call_schedule if v["priority"] == "High"])
     }
 
 @app.get("/sales-history/{uid}")
